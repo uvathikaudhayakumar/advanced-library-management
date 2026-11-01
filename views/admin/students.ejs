@@ -1,0 +1,124 @@
+
+<%- include('../partials/head') %>
+<%- include('../partials/nav') %>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <a href="/admin">Overview</a>
+    <a href="/admin/books">Books</a>
+    <a class="active" href="/admin/students">Students</a>
+    <a href="/admin/reservations">Reservations</a>
+    <a href="/admin/loans">Issue & Return</a>
+    <a href="/admin/fines">Fine Management</a>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-heading">
+      <div>
+        <div class="eyebrow">PEOPLE</div>
+        <h1>Student Management</h1>
+        <p class="text-secondary">Register and manage student accounts.</p>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <h2>Register New Student</h2>
+      </div>
+
+      <form action="/admin/students" method="POST" class="p-3">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Student Name *</label>
+            <input name="name" class="form-control" required>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Email *</label>
+            <input type="email" name="email" class="form-control" required>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Registration Number *</label>
+            <input name="registrationNo" class="form-control" required>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Department</label>
+            <input name="department" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Year</label>
+            <select name="year" class="form-select">
+              <option value="">Select Year</option>
+              <option value="1">First Year</option>
+              <option value="2">Second Year</option>
+              <option value="3">Third Year</option>
+              <option value="4">Fourth Year</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Password *</label>
+            <input type="password" name="password" class="form-control"
+              minlength="8" required>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Confirm Password *</label>
+            <input type="password" name="confirmPassword"
+              class="form-control" minlength="8" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary mt-4">
+          Register Student
+        </button>
+      </form>
+    </section>
+
+    <section class="panel mt-4">
+      <div class="panel-heading">
+        <h2>Registered Students</h2>
+        <input class="form-control table-search"
+          placeholder="Search students..."
+          data-table-search="#studentsTable">
+      </div>
+
+      <div class="table-responsive">
+        <table class="table" id="studentsTable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Registration No.</th>
+              <th>Email</th>
+              <th>Department</th>
+              <th>Year</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <% students.forEach(s => { %>
+              <tr>
+                <td class="fw-semibold"><%= s.name %></td>
+                <td><%= s.registrationNo || '—' %></td>
+                <td><%= s.email %></td>
+                <td><%= s.department || '—' %></td>
+                <td><%= s.year || '—' %></td>
+                <td>
+                  <span class="badge <%= s.active ? 'bg-green-lt' : 'bg-secondary-lt' %>">
+                    <%= s.active ? 'Active' : 'Inactive' %>
+                  </span>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<%- include('../partials/footer') %>
