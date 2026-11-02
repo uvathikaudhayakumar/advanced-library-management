@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LibraryOS - Advanced Book Reservation & Fine Management</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📚</text></svg>">
+  
+  <!-- CSS Dependencies: Bootstrap 5, Tabler UI, Tabler Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/tabler-icons.min.css" rel="stylesheet">
+  <link href="/css/app.css" rel="stylesheet">
+
+  <style>
+    /* Public API enhancements & modern UI polish */
+    .api-badge {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .api-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse-green 2s infinite;
+    }
+    @keyframes pulse-green {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .category-pill {
+      cursor: pointer;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: #4b5563;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .category-pill:hover, .category-pill.active {
+      background: #4f46e5;
+      color: #fff;
+      border-color: #4f46e5;
+    }
+    .book-cover {
+      height: 180px;
+      position: relative;
+      background: #f1f5f9;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .book-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+    .book-card:hover .book-cover img {
+      transform: scale(1.05);
+    }
+    .book-rating {
+      color: #f59e0b;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .portal-toggle-btn {
+      font-weight: 600;
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 6px 14px;
+      transition: all 0.2s;
+    }
+    .portal-toggle-btn.active {
+      background: #4f46e5;
+      color: white;
+    }
+    .nav-user-badge {
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .cursor-pointer { cursor: pointer; }
+    .badge-outline-primary {
+      color: #4f46e5;
+      border: 1px solid #c7d2fe;
+      background: #eef2ff;
+    }
+    .public-api-source-tag {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body class="app-body">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="navbar navbar-expand-md navbar-light app-topbar">
+    <div class="container-fluid">
+      <div class="d-flex align-items-center gap-3">
+        <a class="navbar-brand fw-bold d-flex align-items-center m-0" href="#" onclick="App.navigate('dashboard')">
+          <span class="brand-mark">L</span>
+          <span class="fs-4">LibraryOS</span>
+        </a>
+
+        <!-- Public API Connection Status -->
+        <div class="api-badge d-none d-lg-flex" title="Connected to Open Library & Google Books public APIs">
+          <span class="api-pulse"></span>
+          <span>Public APIs Active</span>
+        </div>
+      </div>
+
+      <!-- Portal Switcher & User Actions -->
+      <div class="navbar-nav flex-row align-items-center gap-2">
+        <!-- Portal Switcher -->
+        <div class="btn-group me-2" role="group">
+          <button type="button" class="btn btn-sm btn-outline-secondary portal-toggle-btn" id="btnStudentPortal" onclick="App.switchPortal('student')">
+            <i class="ti ti-school me-1"></i> Student Portal
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary portal-toggle-btn" id="btnAdminPortal" onclick="App.switchPortal('admin')">
+            <i class="ti ti-shield-lock me-1"></i> Admin Portal
+          </button>
+        </div>
+
+        <!-- Notification Bell -->
+        <div class="dropdown">
+          <button class="btn btn-icon btn-ghost-secondary position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
+            <i class="ti ti-bell fs-2"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifBadge" style="display:none;">0</span>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end p-2" style="width: 320px; max-height: 400px; overflow-y: auto;" id="notifList">
+            <div class="d-flex justify-content-between align-items-center px-2 py-1 border-bottom mb-2">
+              <span class="fw-bold small">Notifications</span>
+              <button class="btn btn-sm btn-link p-0 text-decoration-none" onclick="App.clearNotifications()">Mark all read</button>
+            </div>
+            <div id="notifItems">
+              <div class="text-center text-muted py-3 small">No notifications yet.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account Profile & Quick Switcher -->
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown">
+            <i class="ti ti-user-circle fs-3"></i>
+            <span id="navUserName">Administrator</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li class="dropdown-header text-uppercase fs-6">Switch Active Role</li>
+            <li><a class="dropdown-item cursor-pointer" onclick="App.switchUser('admin_1')"><i class="ti ti-shield-lock me-2 text-primary"></i> Library Administrator</a></li>
+            <li><a class="dropdown-item cursor-pointer" onclick="App.switchUser('student_1')"><i class="ti ti-school me-2 text-success"></i> Uvathika U (24MCA001)</a></li>
+            <li><a class="dropdown-item cursor-pointer" onclick="App.switchUser('student_2')"><i class="ti ti-school me-2 text-info"></i> Alex Rivera (24MCA042)</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item cursor-pointer text-danger" onclick="App.resetData()"><i class="ti ti-refresh me-2"></i> Reset Demo Data</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP SHELL -->
+  <div class="app-shell">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="appSidebar">
+      <!-- Admin Nav Links -->
+      <div id="adminNavGroup">
+        <a href="#" class="nav-link-item active" data-view="admin-dashboard" onclick="App.navigate('admin-dashboard')">
+          <i class="ti ti-layout-dashboard"></i> Overview
+        </a>
+        <a href="#" class="nav-link-item" data-view="admin-books" onclick="App.navigate('admin-books')">
+          <i class="ti ti-books"></i> Books & Public API
+        </a>
+        <a href="#" class="nav-link-item" data-view="admin-students" onclick="App.navigate('admin-students')">
+          <i class="ti ti-users"></i> Students
+        </a>
+        <a href="#" class="nav-link-item" data-view="admin-reservations" onclick="App.navigate('admin-reservations')">
+          <i class="ti ti-bookmark"></i> Reservations
+        </a>
+        <a href="#" class="nav-link-item" data-view="admin-loans" onclick="App.navigate('admin-loans')">
+          <i class="ti ti-arrows-exchange"></i> Issue & Return
+        </a>
+        <a href="#" class="nav-link-item" data-view="admin-fines" onclick="App.navigate('admin-fines')">
+          <i class="ti ti-receipt"></i> Fine Management
+        </a>
+      </div>
+
+      <!-- Student Nav Links -->
+      <div id="studentNavGroup" style="display:none;">
+        <a href="#" class="nav-link-item" data-view="student-dashboard" onclick="App.navigate('student-dashboard')">
+          <i class="ti ti-layout-dashboard"></i> My Dashboard
+        </a>
+        <a href="#" class="nav-link-item" data-view="student-books" onclick="App.navigate('student-books')">
+          <i class="ti ti-search"></i> Explore Books
+        </a>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEW CONTAINER -->
+    <main class="main-content" id="mainContent">
+
+      <!-- ========================================== -->
+      <!-- VIEW 1: ADMIN DASHBOARD                   -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-admin-dashboard">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">LIBRARY OPERATIONS</div>
+            <h1>Admin Dashboard</h1>
+            <p class="text-secondary mb-0">Live monitoring, inventory levels, overdue tracking and priority alerts.</p>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="live-pill"><span></span> Public API Live</span>
+            <button class="btn btn-outline-primary btn-sm" onclick="App.navigate('admin-books')">
+              <i class="ti ti-plus me-1"></i> Add Books
+            </button>
+          </div>
+        </div>
+
+        <!-- 8 Metric KPI Cards -->
+        <div class="stats-grid" id="adminStatsGrid">
+          <div class="stat-card">
+            <span>Total students</span>
+            <strong id="statTotalStudents">0</strong>
+            <i class="ti ti-users"></i>
+          </div>
+          <div class="stat-card">
+            <span>Book titles</span>
+            <strong id="statTotalTitles">0</strong>
+            <i class="ti ti-books"></i>
+          </div>
+          <div class="stat-card">
+            <span>Available copies</span>
+            <strong id="statAvailableCopies">0</strong>
+            <i class="ti ti-book-2"></i>
+          </div>
+          <div class="stat-card">
+            <span>Active loans</span>
+            <strong id="statActiveLoans">0</strong>
+            <i class="ti ti-book-download"></i>
+          </div>
+          <div class="stat-card">
+            <span>Pending reservations</span>
+            <strong id="statPendingRes">0</strong>
+            <i class="ti ti-bookmark"></i>
+          </div>
+          <div class="stat-card danger-stat">
+            <span>Overdue loans</span>
+            <strong id="statOverdueLoans" class="text-danger">0</strong>
+            <i class="ti ti-alert-triangle"></i>
+          </div>
+          <div class="stat-card warning-stat">
+            <span>Unpaid fines</span>
+            <strong id="statUnpaidFines" class="text-warning">₹0.00</strong>
+            <i class="ti ti-currency-rupee"></i>
+          </div>
+          <div class="stat-card">
+            <span>Fine collected</span>
+            <strong id="statCollectedFines" class="text-success">₹0.00</strong>
+            <i class="ti ti-wallet"></i>
+          </div>
+        </div>
+
+        <!-- Priority Alert Centre -->
+        <section class="panel mt-4">
+          <div class="panel-heading">
+            <div>
+              <h2>Priority Alert Centre</h2>
+              <p>Critical automated notices: overdue loans, low inventory, and pending reservations.</p>
+            </div>
+            <span class="badge bg-red-lt" id="alertCountBadge">0 Active Alerts</span>
+          </div>
+          <div class="alert-list" id="adminAlertsList">
+            <!-- Rendered by JS -->
+          </div>
+        </section>
+
+        <!-- Charts and Quick Operations -->
+        <div class="content-grid mt-4">
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Borrowing Activity</h2>
+                <p>Monthly issued-book analytics</p>
+              </div>
+            </div>
+            <canvas id="loanChart" height="200"></canvas>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Inventory Distribution</h2>
+                <p>Curated titles by subject</p>
+              </div>
+            </div>
+            <canvas id="categoryChart" height="200"></canvas>
+          </section>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW 2: ADMIN BOOKS & PUBLIC API          -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-admin-books" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">CATALOGUE & APIS</div>
+            <h1>Book Management & Public API Import</h1>
+            <p class="text-secondary mb-0">Search the Open Library / Google Books Public APIs or add custom titles.</p>
+          </div>
+        </div>
+
+        <!-- Public API Live Search Panel -->
+        <section class="panel mb-4" style="background: linear-gradient(180deg, #f8faff 0%, #ffffff 100%);">
+          <div class="panel-heading">
+            <div>
+              <h2 class="text-primary"><i class="ti ti-world me-2"></i>Live Public API Search & Instant Import</h2>
+              <p>Type any keyword, subject, author, or ISBN to search millions of books live from Open Library.</p>
+            </div>
+            <span class="api-badge"><i class="ti ti-bolt"></i> Real-time Query</span>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-md-9">
+              <div class="input-group">
+                <span class="input-group-text bg-white"><i class="ti ti-search text-muted"></i></span>
+                <input type="text" class="form-control" id="apiSearchInput" placeholder="e.g. 'Operating Systems', 'Machine Learning', 'Robert Martin', '9780132350884'..." onkeydown="if(event.key==='Enter') App.searchPublicAPI()">
+              </div>
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-primary w-100" id="btnRunApiSearch" onclick="App.searchPublicAPI()">
+                <i class="ti ti-cloud-download me-1"></i> Search Public API
+              </button>
+            </div>
+          </div>
+
+          <!-- Public API Live Search Results -->
+          <div id="apiSearchResults" class="mt-3" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="fw-semibold text-secondary small" id="apiResultsCount">Found 0 books</span>
+              <button class="btn btn-sm btn-link text-decoration-none" onclick="document.getElementById('apiSearchResults').style.display='none'">Hide Results</button>
+            </div>
+            <div class="row g-3" id="apiResultsGrid" style="max-height: 480px; overflow-y: auto;">
+              <!-- API book cards injected here -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Manual Add Book Form -->
+        <section class="panel mb-4">
+          <div class="panel-heading">
+            <h2>Add Custom Book</h2>
+          </div>
+          <form id="formAddBook" class="row g-3" onsubmit="App.handleManualAddBook(event)">
+            <div class="col-md-4">
+              <label class="form-label">Book Title *</label>
+              <input class="form-control" name="title" required placeholder="e.g. Modern Operating Systems">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Author *</label>
+              <input class="form-control" name="author" required placeholder="e.g. Andrew S. Tanenbaum">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">ISBN</label>
+              <input class="form-control" name="isbn" placeholder="e.g. 9780133591620">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Category</label>
+              <input class="form-control" name="category" placeholder="e.g. Computer Science" value="Computer Science">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Total Copies *</label>
+              <input class="form-control" type="number" min="1" name="totalCopies" value="4" required>
+            </div>
+            <div class="col-md-7">
+              <label class="form-label">Cover Image URL (optional)</label>
+              <input class="form-control" name="coverUrl" placeholder="https://...">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="ti ti-plus me-1"></i> Add to Inventory
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Current Library Catalogue -->
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Current Library Inventory</h2>
+              <p>Active titles, copy availability, and management</p>
+            </div>
+            <input class="form-control table-search" id="adminBookSearch" placeholder="Filter inventory..." oninput="App.filterAdminBooks()">
+          </div>
+          <div class="table-responsive">
+            <table class="table table-vcenter">
+              <thead>
+                <tr>
+                  <th>Cover</th>
+                  <th>Title & Author</th>
+                  <th>Category</th>
+                  <th>ISBN</th>
+                  <th>Available</th>
+                  <th>Total</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminBooksTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW 3: ADMIN STUDENTS                    -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-admin-students" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">PEOPLE & ENROLMENT</div>
+            <h1>Student Management</h1>
+            <p class="text-secondary mb-0">Register students and monitor active borrowings.</p>
+          </div>
+        </div>
+
+        <!-- Register Student Panel -->
+        <section class="panel mb-4">
+          <div class="panel-heading">
+            <h2>Register New Student</h2>
+          </div>
+          <form id="formAddStudent" class="row g-3" onsubmit="App.handleRegisterStudent(event)">
+            <div class="col-md-4">
+              <label class="form-label">Full Name *</label>
+              <input class="form-control" name="name" required placeholder="e.g. Uvathika U">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Institutional Email *</label>
+              <input class="form-control" type="email" name="email" required placeholder="e.g. uvathika.u2024@vitstudent.ac.in">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Registration Number *</label>
+              <input class="form-control" name="registrationNo" required placeholder="e.g. 24MCA001">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Department</label>
+              <input class="form-control" name="department" placeholder="e.g. Computer Science & Engineering" value="Computer Science">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Academic Year</label>
+              <select class="form-select" name="year">
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year" selected>2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+              </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="ti ti-user-plus me-1"></i> Register Student
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Students Directory Table -->
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Enrolled Students Directory</h2>
+            <input class="form-control table-search" id="studentDirectorySearch" placeholder="Search students..." oninput="App.filterStudentDirectory()">
+          </div>
+          <div class="table-responsive">
+            <table class="table table-vcenter">
+              <thead>
+                <tr>
+                  <th>Student Name</th>
+                  <th>Reg. Number</th>
+                  <th>Email</th>
+                  <th>Department</th>
+                  <th>Year</th>
+                  <th>Active Loans</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="adminStudentsTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW 4: ADMIN RESERVATIONS                -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-admin-reservations" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">QUEUE MANAGEMENT</div>
+            <h1>Student Reservations</h1>
+            <p class="text-secondary mb-0">Approve or reject reservation requests submitted by students.</p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Reservation Queue</h2>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-vcenter">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Reg. No</th>
+                  <th>Book Title</th>
+                  <th>Requested Date</th>
+                  <th>Available Copies</th>
+                  <th>Status</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminReservationsTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW 5: ADMIN ISSUE & RETURN              -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-admin-loans" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">CIRCULATION</div>
+            <h1>Issue & Return Desk</h1>
+            <p class="text-secondary mb-0">Issue books with customized due dates and process physical returns.</p>
+          </div>
+        </div>
+
+        <!-- Issue Book Panel -->
+        <section class="panel mb-4">
+          <div class="panel-heading">
+            <h2>Issue a Book to Student</h2>
+          </div>
+          <form id="formIssueLoan" class="row g-3" onsubmit="App.handleIssueLoan(event)">
+            <div class="col-md-5">
+              <label class="form-label">Select Student *</label>
+              <select class="form-select" name="studentId" id="selectIssueStudent" required>
+                <!-- Populated by JS -->
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Select Available Book *</label>
+              <select class="form-select" name="bookId" id="selectIssueBook" required>
+                <!-- Populated by JS -->
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Due Date *</label>
+              <input class="form-control" type="date" name="dueAt" id="inputIssueDueDate" required>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+              <button type="submit" class="btn btn-primary w-100">Issue</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Active Circulation Table -->
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Active Loan Records</h2>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-vcenter">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Book Title</th>
+                  <th>Issued Date</th>
+                  <th>Due Date</th>
+                  <th>Status</th>
+                  <th class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminLoansTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW 6: ADMIN FINES                       -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-admin-fines" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">PAYMENTS & AUDITING</div>
+            <h1>Fine Management</h1>
+            <p class="text-secondary mb-0">Review overdue fines, audit payments, and record official receipts.</p>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Overdue Fines Records</h2>
+              <p>Configured fine rate: ₹5.00 per day</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-vcenter">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Reg. No</th>
+                  <th>Book Title</th>
+                  <th>Overdue Days</th>
+                  <th>Amount (₹)</th>
+                  <th>Status</th>
+                  <th>Receipt Ref</th>
+                  <th class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody id="adminFinesTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW 7: STUDENT DASHBOARD                 -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-student-dashboard" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">STUDENT PORTAL</div>
+            <h1 id="studentWelcomeTitle">Welcome, Student</h1>
+            <p class="text-secondary mb-0" id="studentWelcomeSubtitle">Computer Science & Engineering</p>
+          </div>
+          <button class="btn btn-primary" onclick="App.navigate('student-books')">
+            <i class="ti ti-search me-1"></i> Explore Book Catalogue
+          </button>
+        </div>
+
+        <!-- Student Stat Cards -->
+        <div class="stats-grid mb-4">
+          <div class="stat-card">
+            <span>My Active Loans</span>
+            <strong id="studentStatLoans">0</strong>
+            <i class="ti ti-book"></i>
+          </div>
+          <div class="stat-card">
+            <span>Pending Reservations</span>
+            <strong id="studentStatReservations">0</strong>
+            <i class="ti ti-bookmark"></i>
+          </div>
+          <div class="stat-card warning-stat">
+            <span>Outstanding Fines</span>
+            <strong id="studentStatFines" class="text-warning">₹0.00</strong>
+            <i class="ti ti-receipt"></i>
+          </div>
+        </div>
+
+        <div class="content-grid">
+          <!-- Student Active Loans -->
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <h2>My Borrowed Books</h2>
+                <p>Track return deadlines and request returns.</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-vcenter">
+                <thead>
+                  <tr>
+                    <th>Book</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="studentLoansTableBody">
+                  <!-- Rendered by JS -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Student Reservations & Fines -->
+          <div class="d-flex flex-column gap-3">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>My Reservations</h2>
+              </div>
+              <div id="studentReservationsList">
+                <!-- Rendered by JS -->
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>My Overdue Fines</h2>
+              </div>
+              <div id="studentFinesList">
+                <!-- Rendered by JS -->
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- VIEW 8: STUDENT EXPLORE BOOKS (PUBLIC API) -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-student-books" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">DISCOVER & RESERVE</div>
+            <h1>Explore Book Catalogue</h1>
+            <p class="text-secondary mb-0">Search thousands of academic and general volumes via the Public API.</p>
+          </div>
+          <span class="api-badge"><span class="api-pulse"></span> Open Library API</span>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar mb-3">
+          <i class="ti ti-search fs-2"></i>
+          <input type="text" class="form-control" id="studentSearchInput" placeholder="Search by book title, author, subject, or ISBN..." oninput="App.handleStudentSearch()">
+          <button class="btn btn-primary btn-sm px-3" onclick="App.handleStudentSearchBtn()">Search</button>
+        </div>
+
+        <!-- Category Filters -->
+        <div class="d-flex gap-2 overflow-auto pb-2 mb-4" id="categoryPillsContainer">
+          <span class="category-pill active" onclick="App.filterStudentCategory('All')">All Titles</span>
+          <span class="category-pill" onclick="App.filterStudentCategory('Software Engineering')">Software Engineering</span>
+          <span class="category-pill" onclick="App.filterStudentCategory('Computer Science')">Computer Science</span>
+          <span class="category-pill" onclick="App.filterStudentCategory('Artificial Intelligence')">Artificial Intelligence</span>
+          <span class="category-pill" onclick="App.filterStudentCategory('Database Systems')">Database Systems</span>
+          <span class="category-pill" onclick="App.filterStudentCategory('Cloud Computing')">Cloud Computing</span>
+          <span class="category-pill" onclick="App.filterStudentCategory('Web Development')">Web Development</span>
+          <span class="category-pill" onclick="App.filterStudentCategory('Networking')">Networking</span>
+        </div>
+
+        <!-- Book Grid -->
+        <div class="book-grid" id="studentBookGrid">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- BOOK DETAIL MODAL -->
+  <div class="modal fade" id="bookDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="modalBookTitle">Book Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-4">
+            <div class="col-md-4 text-center">
+              <img id="modalBookCover" src="" class="img-fluid rounded shadow-sm mb-3" style="max-height: 250px; object-fit: cover;">
+              <div class="d-grid gap-2" id="modalBookActions">
+                <!-- Action button -->
+              </div>
+            </div>
+            <div class="col-md-8">
+              <span class="badge bg-indigo-lt mb-2" id="modalBookCategory">Category</span>
+              <h3 class="fw-bold mb-1" id="modalBookFullTitle">Title</h3>
+              <p class="text-muted" id="modalBookAuthor">Author</p>
+              
+              <div class="row g-2 py-2 border-top border-bottom my-3">
+                <div class="col-6">
+                  <small class="text-muted d-block">ISBN</small>
+                  <strong id="modalBookIsbn">—</strong>
+                </div>
+                <div class="col-6">
+                  <small class="text-muted d-block">Published Year</small>
+                  <strong id="modalBookYear">—</strong>
+                </div>
+                <div class="col-6">
+                  <small class="text-muted d-block">Available in Library</small>
+                  <strong id="modalBookAvailable" class="text-success">—</strong>
+                </div>
+                <div class="col-6">
+                  <small class="text-muted d-block">Community Rating</small>
+                  <strong id="modalBookRating" class="text-warning">★ 4.8 / 5.0</strong>
+                </div>
+              </div>
+
+              <h6 class="fw-bold">Description & Synopsis</h6>
+              <p class="text-secondary small" id="modalBookDesc" style="line-height: 1.6;">...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM PAYMENT MODAL -->
+  <div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">Confirm Fine Payment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="formConfirmPayment" onsubmit="App.handleConfirmPayment(event)">
+          <div class="modal-body">
+            <input type="hidden" id="payFineId">
+            <p>You are recording payment for:</p>
+            <div class="p-3 bg-light rounded mb-3">
+              <div class="d-flex justify-content-between mb-1">
+                <span class="text-muted">Student:</span>
+                <strong id="payStudentName">—</strong>
+              </div>
+              <div class="d-flex justify-content-between mb-1">
+                <span class="text-muted">Book:</span>
+                <strong id="payBookTitle">—</strong>
+              </div>
+              <div class="d-flex justify-content-between text-danger">
+                <span>Fine Amount:</span>
+                <strong class="fs-4" id="payFineAmount">₹0.00</strong>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Payment Receipt / Reference Number *</label>
+              <input type="text" class="form-control" id="payReceiptRef" required placeholder="e.g. REC-2026-9041 or UPI/CASH reference">
+              <small class="text-muted">An official audit receipt will be registered to the student account.</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Confirm & Mark Paid</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS: jQuery, Bootstrap Bundle, SweetAlert2, Chart.js -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- APP SCRIPTS -->
+  <script src="/js/public-api.js"></script>
+  <script src="/js/store.js"></script>
+  <script src="/js/app-client.js"></script>
+</body>
+</html>

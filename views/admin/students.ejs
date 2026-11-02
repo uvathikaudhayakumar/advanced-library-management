@@ -1,18 +1,15 @@
-
-<%- include('../partials/head') %>
-<%- include('../partials/nav') %>
-
+<%- include('../partials/head') %><%- include('../partials/nav') %>
 <div class="app-shell">
   <aside class="sidebar">
-    <a href="/admin">Overview</a>
-    <a href="/admin/books">Books</a>
-    <a class="active" href="/admin/students">Students</a>
-    <a href="/admin/reservations">Reservations</a>
-    <a href="/admin/loans">Issue & Return</a>
-    <a href="/admin/fines">Fine Management</a>
+    <a href="/admin"><i class="ti ti-layout-dashboard"></i> Overview</a>
+    <a href="/admin/books"><i class="ti ti-books"></i> Books</a>
+    <a class="active" href="/admin/students"><i class="ti ti-users"></i> Students</a>
+    <a href="/admin/reservations"><i class="ti ti-bookmark"></i> Reservations</a>
+    <a href="/admin/loans"><i class="ti ti-arrows-exchange"></i> Issue & Return</a>
+    <a href="/admin/fines"><i class="ti ti-receipt"></i> Fine Management</a>
   </aside>
-
   <main class="main-content">
+    <%- include('../partials/flash') %>
     <div class="page-heading">
       <div>
         <div class="eyebrow">PEOPLE</div>
@@ -21,73 +18,55 @@
       </div>
     </div>
 
-    <section class="panel">
+    <section class="panel mb-4">
       <div class="panel-heading">
         <h2>Register New Student</h2>
       </div>
-
-      <form action="/admin/students" method="POST" class="p-3">
+      <form action="/admin/students" method="POST" class="p-2">
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label">Student Name *</label>
-            <input name="name" class="form-control" required>
+            <input name="name" class="form-control" required placeholder="e.g. Uvathika U">
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Email *</label>
-            <input type="email" name="email" class="form-control" required>
+            <input type="email" name="email" class="form-control" required placeholder="name@vitstudent.ac.in">
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Registration Number *</label>
-            <input name="registrationNo" class="form-control" required>
+            <input name="registrationNo" class="form-control" required placeholder="e.g. 24MCA001">
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Department</label>
-            <input name="department" class="form-control">
+            <input name="department" class="form-control" placeholder="e.g. Computer Science & Engineering">
           </div>
-
           <div class="col-md-6">
             <label class="form-label">Year</label>
             <select name="year" class="form-select">
-              <option value="">Select Year</option>
-              <option value="1">First Year</option>
-              <option value="2">Second Year</option>
-              <option value="3">Third Year</option>
-              <option value="4">Fourth Year</option>
+              <option value="1st Year">1st Year</option>
+              <option value="2nd Year" selected>2nd Year</option>
+              <option value="3rd Year">3rd Year</option>
+              <option value="4th Year">4th Year</option>
             </select>
           </div>
-
           <div class="col-md-6">
-            <label class="form-label">Password *</label>
-            <input type="password" name="password" class="form-control"
-              minlength="8" required>
+            <label class="form-label">Initial Password *</label>
+            <input type="password" name="password" class="form-control" required value="Student123!">
           </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Confirm Password *</label>
-            <input type="password" name="confirmPassword"
-              class="form-control" minlength="8" required>
+          <div class="col-12 mt-3 text-end">
+            <button type="submit" class="btn btn-primary">Register Student</button>
           </div>
         </div>
-
-        <button type="submit" class="btn btn-primary mt-4">
-          Register Student
-        </button>
       </form>
     </section>
 
-    <section class="panel mt-4">
+    <section class="panel">
       <div class="panel-heading">
-        <h2>Registered Students</h2>
-        <input class="form-control table-search"
-          placeholder="Search students..."
-          data-table-search="#studentsTable">
+        <h2>Registered Students Directory</h2>
+        <input class="form-control table-search" placeholder="Search students..." data-table-search="#studentsTable">
       </div>
-
       <div class="table-responsive">
-        <table class="table" id="studentsTable">
+        <table class="table table-vcenter" id="studentsTable">
           <thead>
             <tr>
               <th>Name</th>
@@ -98,20 +77,15 @@
               <th>Status</th>
             </tr>
           </thead>
-
           <tbody>
             <% students.forEach(s => { %>
               <tr>
                 <td class="fw-semibold"><%= s.name %></td>
-                <td><%= s.registrationNo || '—' %></td>
+                <td><code><%= s.registrationNo || '—' %></code></td>
                 <td><%= s.email %></td>
                 <td><%= s.department || '—' %></td>
                 <td><%= s.year || '—' %></td>
-                <td>
-                  <span class="badge <%= s.active ? 'bg-green-lt' : 'bg-secondary-lt' %>">
-                    <%= s.active ? 'Active' : 'Inactive' %>
-                  </span>
-                </td>
+                <td><span class="badge <%= s.active ? 'bg-green-lt' : 'bg-secondary-lt' %>"><%= s.active ? 'Active' : 'Inactive' %></span></td>
               </tr>
             <% }) %>
           </tbody>
@@ -120,5 +94,4 @@
     </section>
   </main>
 </div>
-
 <%- include('../partials/footer') %>

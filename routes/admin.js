@@ -1,8 +1,8 @@
 const router = require('express').Router();
+const bcrypt = require('bcryptjs');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const User = require('../models/User');
 const Book = require('../models/Book');
-const bcrypt = require('bcryptjs');
 const Reservation = require('../models/Reservation');
 const Loan = require('../models/Loan');
 const Fine = require('../models/Fine');
@@ -46,65 +46,35 @@ router.get('/students', async (req, res, next) => {
 });
 router.post('/students', async (req, res, next) => {
   try {
-    const {
-      name,
-      email,
-      registrationNo,
-      department,
-      year,
-      password,
-      confirmPassword
-    } = req.body;
-
-    if (!name || !email || !registrationNo || !password || !confirmPassword) {
-      req.flash('error', 'Please fill in all required fields.');
+    const { name, email, registrationNo, department, year, password } = req.body;
+    if (!name || !email || !registrationNo || !password) {
+      req.session.flash = 'Name, email, registration number, and password are required.';
       return res.redirect('/admin/students');
     }
-
-    if (password.length < 8) {
-      req.flash('error', 'Password must be at least 8 characters.');
-      return res.redirect('/admin/students');
-    }
-
-    if (password !== confirmPassword) {
-      req.flash('error', 'Passwords do not match.');
-      return res.redirect('/admin/students');
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email.toLowerCase().trim();
     const normalizedRegNo = registrationNo.trim();
-
     const existingStudent = await User.findOne({
-      $or: [
-        { email: normalizedEmail },
-        { registrationNo: normalizedRegNo }
-      ]
+      $or: [{ email: normalizedEmail }, { registrationNo: normalizedRegNo }]
     });
-
     if (existingStudent) {
-      req.flash('error', 'Email or registration number already exists.');
+      req.session.flash = 'Email or registration number already exists.';
       return res.redirect('/admin/students');
     }
-
     const passwordHash = await bcrypt.hash(password, 12);
-
     await User.create({
       name: name.trim(),
       email: normalizedEmail,
       registrationNo: normalizedRegNo,
-      department,
-      year,
+      department: department ? department.trim() : undefined,
+      year: year ? year.trim() : undefined,
       passwordHash,
       role: 'student',
       active: true
     });
-
-    req.flash('success', 'Student registered successfully.');
+    req.io.emit('admin:activity');
+    req.session.flash = 'Student registered successfully.';
     res.redirect('/admin/students');
-
-  } catch (e) {
-    next(e);
-  }
+  } catch (e) { next(e); }
 });
 router.get('/reservations', async (req, res, next) => {
   try { const reservations = await Reservation.find().populate('student book').sort({ createdAt: -1 }); res.render('admin/reservations', { title: 'Reservations', reservations }); } catch (e) { next(e); }
