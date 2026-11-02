@@ -135,6 +135,7 @@ const App = (() => {
       navUser.textContent = state.currentUser.name;
     }
 
+    updateModeBadge();
     renderNotifications();
 
     if (currentView === 'admin-dashboard') renderAdminDashboard();
@@ -1118,6 +1119,301 @@ const App = (() => {
     });
   }
 
+  // Mode and Backend Configuration
+  function updateModeBadge() {
+    const badge = document.getElementById('systemModeBadge');
+    if (!badge) return;
+
+    const mode = LMSStore.getMode();
+    if (mode === 'FULL_DATABASE') {
+      badge.innerHTML = `<span class="badge bg-green-lt px-2 py-1"><i class="ti ti-database me-1"></i> FULL DATABASE MODE (MongoDB & Redis Connected)</span>`;
+    } else {
+      badge.innerHTML = `<span class="badge bg-warning-lt px-2 py-1"><i class="ti ti-device-desktop me-1"></i> DEMO MODE (Client Storage)</span>`;
+    }
+  }
+
+  function showBackendModal() {
+    const input = document.getElementById('backendUrlInput');
+    const tag = document.getElementById('modalModeTag');
+    const exp = document.getElementById('modalModeExplanation');
+    const mode = LMSStore.getMode();
+
+    if (input) input.value = LMSStore.getBackendUrl() || '';
+    if (tag) {
+      if (mode === 'FULL_DATABASE') {
+        tag.className = 'badge bg-success text-white';
+        tag.textContent = 'FULL DATABASE MODE';
+      } else {
+        tag.className = 'badge bg-warning text-dark';
+        tag.textContent = 'DEMO MODE';
+      }
+    }
+    if (exp) {
+      if (mode === 'FULL_DATABASE') {
+        exp.textContent = `Connected to live backend at ${LMSStore.getBackendUrl()}. Serving dynamic queries from MongoDB Atlas & Redis.`;
+      } else {
+        exp.textContent = `Running in local demonstration mode. Data is stored in your browser storage. Connect your Render backend URL to enable real-time MongoDB queries.`;
+      }
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('backendModal'));
+    modal.show();
+  }
+
+  async function testAndSaveBackend() {
+    const input = document.getElementById('backendUrlInput');
+    const url = input?.value?.trim();
+    if (!url) {
+      Swal.fire('Input Required', 'Please enter your Render or local backend URL (e.g. https://your-backend.onrender.com).', 'info');
+      return;
+    }
+
+    Swal.fire({
+      title: 'Connecting to Backend...',
+      text: `Testing /health on ${url}`,
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+
+    try {
+      const res = await fetch(`${url.replace(/\/+$/, '')}/health`);
+      if (res.ok) {
+        const data = await res.json();
+        await LMSStore.setBackendUrl(url);
+        bootstrap.Modal.getInstance(document.getElementById('backendModal'))?.hide();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Connected to Full Database!',
+          html: `Backend Status: <b>${data.status}</b><br>MongoDB: <b>${data.mongodb}</b><br>Redis: <b>${data.redis}</b>`,
+          timer: 2500
+        });
+      } else {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+    } catch (e) {
+      Swal.fire('Connection Error', `Could not reach backend API at ${url}: ${e.message}. Ensure backend is running and CORS is configured.`, 'error');
+    }
+  }
+
+  async function switchToDemoMode() {
+    await LMSStore.setBackendUrl('');
+    bootstrap.Modal.getInstance(document.getElementById('backendModal'))?.hide();
+    Swal.fire({
+      icon: 'info',
+      title: 'Switched to Demo Mode',
+      text: 'Using client-side storage with 50+ pre-seeded student and library records.',
+      timer: 2000,
+      showConfirmButton: false
+    });
+  }
+
+  // Excel Export
+  function exportExcel(type) {
+    // If backend is active, use official server export download
+    const mode = LMSStore.getMode();
+    const backend = LMSStore.getBackendUrl();
+
+    if (mode === 'FULL_DATABASE' && backend) {
+      window.location.href = `${backend}/admin/excel/export/${type}`;
+      return;
+    }
+
+    // Client-side SheetJS export
+    if (typeof XLSX === 'undefined') {
+      Swal.fire('Excel Library Loading', 'Please wait a moment while SheetJS initializes.', 'info');
+      return;
+    }
+
+    const state = LMSStore.getState();
+    const wb = XLSX.utils.book_new();
+
+    if (type === 'all' || type === 'students') {
+      const studentData = state.students.map(s => ({
+        StudentID: s.studentId || s.id,
+        RegisterNumber: s.registerNumber || s.registrationNo,
+        FullName: s.fullName || s.name,
+        Email: s.email,
+        Department: s.department,
+        Year: s.year || s.yearOfStudy,
+        Section: s.section || 'A',
+        Status: s.accountStatus || 'Active'
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentData), 'Students');
+    }
+
+    if (type === 'all' || type === 'books') {
+      const bookData = state.books.map(b => ({
+        CatalogCode: b.catalogCode || b.id,
+        Title: b.title,
+        Author: b.author,
+        ISBN: b.isbn || '',
+        Category: b.category,
+        TotalCopies: b.totalCopies,
+        AvailableCopies: b.availableCopies,
+        Shelf: b.shelfLocation || 'Section A1',
+        PublishedYear: b.publishedYear || ''
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(bookData), 'Books');
+    }
+
+    if (type === 'all' || type === 'fines') {
+      const fineData = state.fines.map(f => ({
+        FineID: f.fineId || f.id,
+        Book: f.bookTitle,
+        OverdueDays: f.overdueDays,
+        Amount: f.amount,
+        PaidAmount: f.paidAmount || (f.status === 'Paid' ? f.amount : 0),
+        Status: f.status,
+        ReceiptRef: f.paymentReference || ''
+      }));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fineData), 'Fines');
+    }
+
+    const filename = `LibraryOS_${type}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: `Exported ${filename}`,
+      showConfirmButton: false,
+      timer: 2000
+    });
+  }
+
+  // Excel Import
+  function handleExcelImport() {
+    const fileInput = document.getElementById('excelFileInput');
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      Swal.fire('No File Selected', 'Please select an .xlsx or .xls workbook to import.', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        let insertedStudents = 0;
+        let insertedBooks = 0;
+        const errors = [];
+
+        // 1. Process Students Worksheet
+        if (workbook.SheetNames.includes('Students')) {
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Students']);
+          rows.forEach((row, idx) => {
+            if (!row.RegisterNumber || !row.FullName || !row.Email) {
+              errors.push(`Students Row ${idx + 2}: Missing required RegisterNumber, FullName, or Email.`);
+              return;
+            }
+            try {
+              LMSStore.addStudent({
+                registrationNo: String(row.RegisterNumber),
+                name: String(row.FullName),
+                email: String(row.Email),
+                department: row.Department || 'Computer Science',
+                year: row.Year || '1st Year'
+              });
+              insertedStudents++;
+            } catch (err) {
+              errors.push(`Students Row ${idx + 2}: ${err.message}`);
+            }
+          });
+        }
+
+        // 2. Process Books Worksheet
+        if (workbook.SheetNames.includes('Books')) {
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets['Books']);
+          rows.forEach((row, idx) => {
+            if (!row.Title || !row.Author) {
+              errors.push(`Books Row ${idx + 2}: Missing required Title or Author.`);
+              return;
+            }
+            try {
+              LMSStore.addBook({
+                title: String(row.Title),
+                author: String(row.Author),
+                isbn: row.ISBN ? String(row.ISBN) : '—',
+                category: row.Category || 'General',
+                totalCopies: Number(row.TotalCopies) || 4
+              });
+              insertedBooks++;
+            } catch (err) {
+              errors.push(`Books Row ${idx + 2}: ${err.message}`);
+            }
+          });
+        }
+
+        const reportEl = document.getElementById('excelImportReport');
+        const detailsEl = document.getElementById('excelReportDetails');
+        if (reportEl && detailsEl) {
+          reportEl.style.display = 'block';
+          detailsEl.innerHTML = `
+            <div class="alert alert-success">
+              <strong>Import Completed:</strong> Added ${insertedStudents} student(s) and ${insertedBooks} book(s).
+            </div>
+            ${errors.length ? `
+              <div class="alert alert-warning">
+                <strong>Notices (${errors.length}):</strong>
+                <ul class="mb-0 small">${errors.map(err => `<li>${escapeHtml(err)}</li>`).join('')}</ul>
+              </div>
+            ` : '<p class="text-success small"><i class="ti ti-check me-1"></i>All records validated cleanly with zero errors.</p>'}
+          `;
+        }
+
+        fileInput.value = '';
+        Swal.fire('Import Processed', `Added ${insertedStudents} students and ${insertedBooks} books.`, 'success');
+      } catch (err) {
+        Swal.fire('Import Failed', err.message, 'error');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function waiveFine(fineId) {
+    Swal.fire({
+      title: 'Waive Overdue Fine',
+      input: 'text',
+      inputLabel: 'Reason for Waiver (Required for Audit)',
+      inputPlaceholder: 'e.g. Approved medical leave or college sports absence',
+      inputValidator: (val) => {
+        if (!val || !val.trim()) return 'Waiver reason is required.';
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Authorize Waiver',
+      confirmButtonColor: '#4f46e5'
+    }).then(res => {
+      if (res.isConfirmed && res.value) {
+        const state = LMSStore.getState();
+        const f = state.fines.find(x => x.id === fineId);
+        if (f) {
+          f.status = 'Waived';
+          f.waiverReason = res.value.trim();
+          f.outstandingAmount = 0;
+          localStorage.setItem('lms_advanced_store_v3', JSON.stringify(state));
+          render();
+          Swal.fire({ icon: 'success', title: 'Fine Waived', timer: 1500, showConfirmButton: false });
+        }
+      }
+    });
+  }
+
+  function markBookDamaged(bookId) {
+    const state = LMSStore.getState();
+    const b = state.books.find(x => x.id === bookId);
+    if (b) {
+      b.bookStatus = 'Damaged';
+      b.availableCopies = Math.max(0, b.availableCopies - 1);
+      localStorage.setItem('lms_advanced_store_v3', JSON.stringify(state));
+      render();
+      Swal.fire('Book Marked Damaged', 'Available count decremented.', 'info');
+    }
+  }
+
   function escapeHtml(text) {
     if (!text) return '';
     return String(text)
@@ -1134,6 +1430,14 @@ const App = (() => {
     navigate,
     switchUser,
     render,
+    showBackendModal,
+    testAndSaveBackend,
+    switchToDemoMode,
+    updateModeBadge,
+    exportExcel,
+    handleExcelImport,
+    waiveFine,
+    markBookDamaged,
     searchPublicAPI,
     importApiBook,
     handleManualAddBook,
@@ -1164,3 +1468,4 @@ const App = (() => {
 document.addEventListener('DOMContentLoaded', () => {
   App.init();
 });
+

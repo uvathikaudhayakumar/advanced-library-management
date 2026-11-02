@@ -131,6 +131,11 @@
           <span class="api-pulse"></span>
           <span>Public APIs Active</span>
         </div>
+
+        <!-- Mode Badge (DEMO MODE vs FULL DATABASE MODE) -->
+        <div id="systemModeBadge" class="cursor-pointer" onclick="App.showBackendModal()" title="Click to view Backend & Database Status">
+          <span class="badge bg-warning-lt px-2 py-1"><i class="ti ti-device-desktop me-1"></i> DEMO MODE (Client Storage)</span>
+        </div>
       </div>
 
       <!-- Portal Switcher & User Actions -->
@@ -205,6 +210,9 @@
         </a>
         <a href="#" class="nav-link-item" data-view="admin-fines" onclick="App.navigate('admin-fines')">
           <i class="ti ti-receipt"></i> Fine Management
+        </a>
+        <a href="#" class="nav-link-item" data-view="admin-excel" onclick="App.navigate('admin-excel')">
+          <i class="ti ti-file-spreadsheet"></i> Excel Manager
         </a>
       </div>
 
@@ -660,7 +668,91 @@
       </div>
 
       <!-- ========================================== -->
-      <!-- VIEW 7: STUDENT DASHBOARD                 -->
+      <!-- VIEW 6.5: ADMIN EXCEL MANAGER             -->
+      <!-- ========================================== -->
+      <div class="app-view" id="view-admin-excel" style="display:none;">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">DATA OPERATIONS & REPORTING</div>
+            <h1>Excel Management Center</h1>
+            <p class="text-secondary mb-0">Import and export complete library datasets using SheetJS workbooks.</p>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <!-- Excel Export Panel -->
+          <div class="col-lg-6">
+            <section class="panel h-100">
+              <div class="panel-heading">
+                <div>
+                  <h2 class="text-success"><i class="ti ti-download me-2"></i>Export Library Records</h2>
+                  <p>Download clean, formatted .xlsx spreadsheets generated directly from records.</p>
+                </div>
+              </div>
+              <div class="d-grid gap-3 p-2">
+                <button class="btn btn-outline-success text-start py-3 d-flex align-items-center justify-content-between" onclick="App.exportExcel('all')">
+                  <div>
+                    <strong class="d-block fs-4"><i class="ti ti-file-database me-2"></i>Complete Library Dataset</strong>
+                    <small class="text-muted">Includes Students, Books, Categories, Loans, Reservations & Fines</small>
+                  </div>
+                  <i class="ti ti-arrow-down-circle fs-2 text-success"></i>
+                </button>
+
+                <div class="row g-2">
+                  <div class="col-sm-4">
+                    <button class="btn btn-outline-secondary w-100 py-2" onclick="App.exportExcel('students')">
+                      <i class="ti ti-users me-1"></i> Students.xlsx
+                    </button>
+                  </div>
+                  <div class="col-sm-4">
+                    <button class="btn btn-outline-secondary w-100 py-2" onclick="App.exportExcel('books')">
+                      <i class="ti ti-books me-1"></i> Books.xlsx
+                    </button>
+                  </div>
+                  <div class="col-sm-4">
+                    <button class="btn btn-outline-secondary w-100 py-2" onclick="App.exportExcel('fines')">
+                      <i class="ti ti-receipt me-1"></i> Fines.xlsx
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- Excel Import Panel -->
+          <div class="col-lg-6">
+            <section class="panel h-100">
+              <div class="panel-heading">
+                <div>
+                  <h2 class="text-primary"><i class="ti ti-upload me-2"></i>Import Excel Workbook</h2>
+                  <p>Upload an .xlsx workbook with "Students" or "Books" worksheets.</p>
+                </div>
+              </div>
+              <div class="p-2">
+                <div class="border border-dashed rounded p-4 text-center mb-3 bg-light">
+                  <i class="ti ti-file-upload fs-1 text-primary mb-2"></i>
+                  <h5>Choose Excel Spreadsheet</h5>
+                  <p class="text-muted small">Supports .xlsx or .xls files up to 10MB.</p>
+                  <input type="file" id="excelFileInput" class="form-control" accept=".xlsx, .xls">
+                </div>
+                <button class="btn btn-primary w-100 py-2" onclick="App.handleExcelImport()">
+                  <i class="ti ti-check me-1"></i> Validate & Import Records
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Import Results Log -->
+        <div id="excelImportReport" class="mt-4" style="display:none;">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Import Audit Report</h2>
+            </div>
+            <div id="excelReportDetails" class="p-2"></div>
+          </section>
+        </div>
+      </div>
       <!-- ========================================== -->
       <div class="app-view" id="view-student-dashboard" style="display:none;">
         <div class="page-heading">
@@ -873,11 +965,50 @@
     </div>
   </div>
 
-  <!-- SCRIPTS: jQuery, Bootstrap Bundle, SweetAlert2, Chart.js -->
+  <!-- BACKEND & ARCHITECTURE CONFIG MODAL -->
+  <div class="modal fade" id="backendModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold"><i class="ti ti-server me-2"></i>System Architecture & Mode Status</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="p-3 rounded mb-3" id="backendStatusCard" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <span class="fw-bold">Active Mode:</span>
+              <span id="modalModeTag" class="badge bg-warning text-dark">DEMO MODE</span>
+            </div>
+            <p class="small text-muted mb-0" id="modalModeExplanation">
+              Running locally in browser storage. All 50+ students, 50 books, loans and fine records are available for demonstration.
+            </p>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Render / Node.js Backend API URL</label>
+            <input type="text" class="form-control" id="backendUrlInput" placeholder="https://your-app.onrender.com or http://localhost:3000">
+            <small class="text-muted">Enter your Render backend URL to switch to FULL DATABASE MODE (MongoDB Atlas & Redis).</small>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary w-50" onclick="App.testAndSaveBackend()">
+              <i class="ti ti-plug me-1"></i> Connect API
+            </button>
+            <button type="button" class="btn btn-outline-secondary w-50" onclick="App.switchToDemoMode()">
+              <i class="ti ti-device-desktop me-1"></i> Use Demo Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS: jQuery, Bootstrap Bundle, SweetAlert2, Chart.js, SheetJS (xlsx) -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   
   <!-- APP SCRIPTS -->
   <script src="/js/public-api.js"></script>
